@@ -6,7 +6,7 @@
 
 自动化部署的两种方式：
 
-1. 服务器端保持流程不变，将人工执行的命令行转化为代码
+1. 服务器端保持流程不变，将人工执行的命令行转化为自动代码
    1. 典型技术：Ansible
    2. 适用场景，复杂系统搭建，例如大数据分布式计算
 2. 简化服务端的流程，让所有的应用用同一套部署流程
@@ -30,6 +30,7 @@
   * 研发--》代码包--》应用市场--》用户PC
 
     * 不同的操作系统需要对应不同的代码包
+      * Java 写一份代码，生成不同平台的安装包
     * 但是基于Docker的应用，只需要一份代码，就可以兼容各类操作系统
 
     
@@ -54,7 +55,7 @@ Linux d0071640a55e 4.19.121-linuxkit #1 SMP Tue Dec 1 17:50:32 UTC 2020 x86_64 x
 
 docker 容器和虚拟机二者都可以理解为一台基于实体机的虚拟小电脑，但是二者是有底层逻辑上的区别的：
 
-* 虚拟机，从操作系统层面上进行切分
+* 虚拟机（vmwhare），从操作系统层面上进行切分
 * docker容器，从应用层面上进行切分
 
 ![docker-1024x439](02 Docker的介绍/docker-1024x439.png)
@@ -88,8 +89,10 @@ docker 容器和虚拟机二者都可以理解为一台基于实体机的虚拟�
 
     * image name:
       * {image_name}:{tag}, 例如 python:3.8.5
+      * 方便检索
     * image id
       * 随机字符串
+      * 本地唯一标识
 
   * 一个 Image 往往是基于另外一个Image之上做的一些定制
 
@@ -103,16 +106,27 @@ docker 容器和虚拟机二者都可以理解为一台基于实体机的虚拟�
 
   * 相当于从软件包中解压安装出的软件，例如 wechat.app
 
+  * 一个image可以生成多个Container
+
+    * 多种不同的容器，类比UML中的父类和子类，Container可以基于相同的Image 生成不同的应用
+    * 相同容器启动多分，服务部署角度
+      * 软件+硬件，初期尽量去简化+固定配置
+      * 当流量扩大的时候：
+        * 增加硬件，修改配置+增加实例
+        * 增加软件实例，增加实例
+
   * 标识：
 
     * container name
-      * 一般为随机字符串
+      * 一般为随机单词
+      * 可以自定义
+      * 方便本机检索
     * container id
       * 随机字符串
 
     
 
-## Registy
+## Registry
 
 * A Docker *registry* stores Docker images.
 * 相当于传统软件中的应用市场，例如 App Store
@@ -172,14 +186,18 @@ A Dockerfile is simply a text-based script of instructions that is used to creat
 
     * pip install -r requirements.txt
 
-    
-
 * CMD
 
   * 容器启动之后指定的命令，例如
     * `docker run -ti python:3.8.5 python`
 
 
+
+# 手动-Docker部署
+
+本地测试完毕，要进行部署
+
+![手动部署流程](02 Docker的介绍/手动部署流程.png)
 
 
 
@@ -194,6 +212,7 @@ A Dockerfile is simply a text-based script of instructions that is used to creat
 ### Image Buid
 
 ```
+# cd project_path
 docker build -t flask-hello:v1 .
 ```
 
@@ -206,10 +225,11 @@ docker run -p 5000:5000  --name flask-hello-service flask-hello:v1
 ### Image Push
 
 ```
-
 docker login
-docker tag flask-hello:v1 clarkchenme/flask-hello:v1
-docker push clarkchenme/flask-hello:v1
+# clarkchenme/teachwifehello:tagname
+docker tag flask-hello:v1 clarkchenme/teachwifehello:v1
+
+docker push clarkchenme/teachwifehello:v1
 
 ```
 
@@ -226,20 +246,28 @@ docker push clarkchenme/flask-hello:v1
 ### Image Pull
 
 ```
-docker pull clarkchenme/flask-hello:v1
+docker pull clarkchenme/teachwifehello:v1
 ```
 
 ### Docker Run
 
 ```
-CONTAINER_NAME=flask-hello
-IMAGE_NAME=clarkchenme/flask-hello:v1
+# 环境变量定义
+CONTAINER_NAME=flask-hello-service
+
+IMAGE_NAME=clarkchenme/teachwifehello:v1
+
+docker pull $IMAGE_NAME
 
 docker container stop $CONTAINER_NAME
 docker container rm $CONTAINER_NAME
-docker pull $IMAGE_NAME
+
+# 删除上一次的Image
 docker rmi -f $(docker images|awk '/none/{print $3}')
 docker run -p 5000:5000 -d  --name $CONTAINER_NAME $IMAGE_NAME 
+
+docker run -p 80:5000 -d  --name $CONTAINER_NAME $IMAGE_NAME 
+
 
 ```
 
@@ -250,16 +278,6 @@ docker run -p 5000:5000 -d  --name $CONTAINER_NAME $IMAGE_NAME
 
 
 ## 本机
-
-## 容器内调试
-
-```
-srcPath=`pwd`/src
-docker run -p 5000:5000 -v $srcPath:/app/src -e FLASK_ENV=development --name flask-hello-service flask-hello:v1
-```
-
-* -v $srcPath:/app/src
-* -e FLASK_ENV=development
 
 ### Image Buid
 
@@ -281,7 +299,6 @@ docker run -p 5000:5000  --name flask-hello-service flask-hello:v1
 
 ```
 # docker images|awk '/none/{print $3}'
-
 docker rmi -f $(docker images|awk '/none/{print $3}')
 ```
 
@@ -306,7 +323,7 @@ docker push clarkchenme/flask-hello:v1
 
 Pros:
 
-* 远端部署，命令固定，不需要考虑环境配置等问题
+* 远端部署，命令固定，标准化部署
 
 Cons:
 
@@ -314,9 +331,19 @@ Cons:
 
 
 
+注意：本课件解决标准问题，不解决自动化问题
 
 
-## Next
 
-* 
-* 
+# 作业
+
+* 将自己的代码打包成Docker Image，Push到 DockerHub上
+
+* 基于Docker Image 完成一次部署，并截图（Dockerhub+运行效果），贴到 [连接](https://github.com/TechWifeCoding/tutorials/issues/2)
+
+  
+
+注意：数据库，助教提供
+
+
+
